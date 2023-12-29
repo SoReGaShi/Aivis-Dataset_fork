@@ -28,12 +28,12 @@ if %errorlevel% neq 0 ( pause & popd & exit /b %errorlevel% )
 del Aivis-Dataset.zip
 if %errorlevel% neq 0 ( pause & popd & exit /b %errorlevel% )
 
-@REM Bert-VITS2-masterの中身をAivis-Datasetに上書き移動
+@REM Aivis-Dataset-masterの中身をAivis-Datasetに上書き移動
 xcopy /QSY .\Aivis-Dataset-master\ .\Aivis-Dataset\
 rmdir /s /q Aivis-Dataset-master
 
 @REM Pythonと仮想環境のセットアップを呼び出す（仮想環境が有効化されて戻ってくる）
-call Aivis-Dataset\scripts\Setup-Python.bat ..\..\lib\python ..\venv
+call Aivis-Dataset\SetupBatchFiles\Setup-Python.bat ..\..\lib\python ..\venv
 if %errorlevel% neq 0 ( popd & exit /b %errorlevel% )
 
 @REM 依存関係インストール
