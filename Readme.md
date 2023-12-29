@@ -7,7 +7,7 @@ Aivisのデータセット作成部分は非常に優秀なので（音声ファ
 ## インストール方法
 
 Windowsでの簡単インストール（Python・Git不要）：
-- [このzip](https://github.com/litagin02/Aivis-Dataset/releases/download/1.0/Aivis-Dataset.zip)をダウンロード
+- [このzip](https://github.com/litagin02/Aivis-Dataset/releases/download/1.0.1/Aivis-Dataset.zip)をダウンロード
 - 解答した中の`Install-Aivis-Dataset.bat`をダブルクリック
 
 慣れている人はgit cloneして仮想環境作ってpytorch入れてpip install -r requirements.txtかpoetryでインストールしてください。
