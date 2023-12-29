@@ -111,8 +111,8 @@ def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: 
             dst_file_path = dst_file_path_new
         elif ex.errno == 22:
             # ファイル名に使用できない文字が含まれている場合は、ファイル名を置換する
-            # Windows では使用できない文字が多いので、Windows ではこの処理がよく実行される
-            
+            # Windows では使用できない文字が多いので、Windows 向け
+
             # ファイル名に使用できない文字を置換する
             dst_file_path_new = dst_file_path.with_name(re.sub(r'[\\/:*?"<>|]', '_', dst_file_path.stem) + dst_file_path.suffix)
             shutil.copyfile(dst_file_path_temp3, dst_file_path_new)
@@ -123,6 +123,7 @@ def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: 
                 f.write(transcript)
             # ファイル名からの書き起こし文の取得が終わったので、dst_file_path を上書きする
             dst_file_path = dst_file_path_new
+        else:
             raise ex
 
     # 一時ファイルを削除
