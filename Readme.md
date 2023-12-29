@@ -4,6 +4,14 @@ Aivis Dataset は、テキストからの読み上げ音声合成（TTS）のデ
 
 Aivisのデータセット作成部分は非常に優秀なので（音声ファイルから、自動的にノイズ除去・発話単位で切り出し・セリフ書き起こし・それのWebUIによるデータセット修正）、そこだけを取り出して使いやすくしたいと思い、このフォークを作りました。
 
+## インストール方法
+
+Windowsでの簡単インストール（Python・Git不要）：
+- [このzip](https://github.com/litagin02/Aivis-Dataset/releases/download/1.0/Aivis-Dataset.zip)をダウンロード
+- 解答した中の`Install-Aivis-Dataset.bat`をダブルクリック
+
+慣れている人はgit cloneして仮想環境作ってpytorch入れてpip install -r requirements.txtかpoetryでインストールしてください。
+
 ## 使い方
 詳細な使い方は下のオリジナルのREADME.mdを参照してください。
 
