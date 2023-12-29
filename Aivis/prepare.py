@@ -1,10 +1,12 @@
 
+import librosa
 import pyloudnorm
 import re
 import regex
 import soundfile
 import shutil
 import subprocess
+import tempfile
 import typer
 from pathlib import Path
 from pydub import AudioSegment
@@ -28,21 +30,30 @@ def GetAudioFileDuration(file_path: Path) -> float:
     return audio.duration_seconds
 
 
-def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: float) -> Path:
+def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: float, trim_silence: bool) -> Path:
     """
     音声ファイルの一部を切り出して出力する
+    前後の無音区間も削除するようにします。
 
     Args:
         src_file_path (Path): 切り出し元の音声ファイルのパス
         dst_file_path (Path): 切り出し先の音声ファイルのパス
         start (float): 切り出し開始時間 (秒)
         end (float): 切り出し終了時間 (秒)
+        trim_silence (bool): 前後の無音区間を削除するかどうか
     """
 
-    # 一時保存先のテンポラリファイル (/tmp/ 以下)
-    dst_file_path_temp1 = Path('/tmp/tmp_1.wav')
-    dst_file_path_temp2 = Path('/tmp/tmp_2.wav')
-    dst_file_path_temp3 = Path('/tmp/tmp_3.wav')
+    # # 一時保存先のテンポラリファイル (/tmp/ 以下)
+    # dst_file_path_temp1 = Path('/tmp/tmp_1.wav')
+    # dst_file_path_temp2 = Path('/tmp/tmp_2.wav')
+    # dst_file_path_temp3 = Path('/tmp/tmp_3.wav')
+    
+    # ↑Windows環境だと動かない？のでtempfileを使う
+    dst_file_path_temp1 = Path(tempfile.NamedTemporaryFile(suffix=".wav").name)
+    dst_file_path_temp2 = Path(tempfile.NamedTemporaryFile(suffix=".wav").name)
+    dst_file_path_temp3 = Path(tempfile.NamedTemporaryFile(suffix=".wav").name)
+    dst_file_path_temp4 = Path(tempfile.NamedTemporaryFile(suffix=".wav").name)
+    # temp1 --切り出し--> temp2 --ノーマライズ--> temp3 --無音区間削除--> temp4 --モノラル化--> dst_file_path
 
     # 開始時刻ちょうどから切り出すと子音が切れてしまうことがあるため、開始時刻の 0.1 秒前から切り出す
     start = max(0, start - 0.1)
@@ -54,24 +65,34 @@ def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: 
     sliced_audio = audio[start * 1000:end * 1000]
     sliced_audio.export(dst_file_path_temp1, format='wav')
 
+    # pyloudnorm で音声ファイルをノーマライズ（ラウドネス正規化）する
+    LoudnessNorm(dst_file_path_temp1, dst_file_path_temp2, loudness=-23.0)  # -23LUFS にノーマライズする
+
+    if trim_silence is False:
+        # 無音区間を削除せずにそのままコピーする
+        shutil.copyfile(dst_file_path_temp2, dst_file_path_temp3)
+    else:
+        # 前後の無音区間をlibrosaを使って削除する
+        y, sr = librosa.load(dst_file_path_temp2)
+        y, _ = librosa.effects.trim(y, top_db=30)
+        soundfile.write(dst_file_path_temp3, y, sr)
+
     # FFmpeg で 44.1kHz 16bit モノラルの wav 形式に変換する
     ## 基本この時点で 44.1kHz 16bit にはなっているはずだが、音声チャンネルはステレオのままなので、ここでモノラルにダウンミックスする
     subprocess.run([
         'ffmpeg',
         '-y',
-        '-i', str(dst_file_path_temp1),
+        '-i', str(dst_file_path_temp3),
         '-ac', '1',
         '-ar', '44100',
         '-acodec', 'pcm_s16le',
-        str(dst_file_path_temp2),
+        str(dst_file_path_temp4),
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # pyloudnorm で音声ファイルをノーマライズ（ラウドネス正規化）する
-    LoudnessNorm(dst_file_path_temp2, dst_file_path_temp3, loudness=-23.0)  # -23LUFS にノーマライズする
 
     # 最後にファイルを dst_file_path にコピーする
     try:
-        shutil.copyfile(dst_file_path_temp3, dst_file_path)
+        shutil.copyfile(dst_file_path_temp4, dst_file_path)
     except OSError as ex:
         # 万が一ファイル名が最大文字数を超える場合は、ファイル名を短くする
         # 87文字は、Linux のファイル名の最大バイト数 (255B) から、拡張子 (.wav) を引いた 251B に入る UTF-8 の最大文字数
@@ -93,6 +114,7 @@ def SliceAudioFile(src_file_path: Path, dst_file_path: Path, start: float, end: 
     dst_file_path_temp1.unlink()
     dst_file_path_temp2.unlink()
     dst_file_path_temp3.unlink()
+    dst_file_path_temp4.unlink()
 
     return dst_file_path
 

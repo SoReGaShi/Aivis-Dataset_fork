@@ -1,3 +1,26 @@
+# Aivis Dataset
+
+Aivis Dataset は、テキストからの読み上げ音声合成（TTS）のデータセット作りから学習までできる[Aivis](https://github.com/tsukumijima/Aivis)のデータセット作成部分のみを取り出し、Bert-VITS2以外のどのTTSでも使いやすい形式にし、またWindowsでPythonやgitがない人でも簡単に使えるようにしたものです。
+
+Aivisのデータセット作成部分は非常に優秀なので（音声ファイルから、自動的にノイズ除去・発話単位で切り出し・セリフ書き起こし・それのWebUIによるデータセット修正）、そこだけを取り出して使いやすくしたいと思い、このフォークを作りました。
+
+改変部分：
+- `*.ogg`形式をサポート
+- `create-segments`時に前後の無音を自動的に削除するように（`--no-trim-silence`で無効化）。
+- `create-segments`に`--no-use-demucs`オプションを追加（Demucsでノイズ除去をする処理をしない代わりにwav形式に変換する処理が走ります）
+- `create-datasets`に`--accept-all`オプションを追加（確認をスキップしてWebUIを起動せずにデータセットを作成）
+- `create-datasets`のglob部分の`*`（すべてのデータを使う）の代用として`ALL`を追加（なぜか自分のWindows環境で`*`がおかしい挙動をしたので）
+- 軽微なWebUIの修正
+- データセットのwavファイルパスを、ファイル名のみの形式に（どのTTSでも使いやすいように）
+- それぞれを実行するWindows用簡易バッチファイルを追加
+
+## クレジット
+- [Aivis](https://github.com/tsukumijima/Aivis/)
+- [EasyBertVits2](https://github.com/Zuntan03/EasyBertVits2): バッチスクリプトを多くお借りしました。
+
+以下はオリジナルの README.md です。
+
+---
 
 # Aivis
 

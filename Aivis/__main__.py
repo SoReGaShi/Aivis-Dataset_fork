@@ -28,6 +28,8 @@ app = typer.Typer(help='Aivis: AI Voice Imitation System')
 def create_segments(
     whisper_model: Annotated[constants.ModelNameType, typer.Option(help='Whisper model name.')] = constants.ModelNameType.large_v3,
     force_transcribe: Annotated[bool, typer.Option(help='Force Whisper to transcribe audio files.')] = False,
+    use_demucs: Annotated[bool, typer.Option(help='Use Demucs to extract voices from audio files.')] = True,
+    trim_silence: Annotated[bool, typer.Option(help='Trim silence (start and end only) from audio files.')] = True,
 ):
     # このサブコマンドでしか利用せず、かつ比較的インポートが重いモジュールはここでインポートする
     import faster_whisper
@@ -43,7 +45,10 @@ def create_segments(
     ## 本来は楽曲をボーカル・ドラム・ベース・その他に音源分離するための AI だが、これを応用して BGM・SE・ノイズなどを大部分除去できる
     ## Demucs でボーカル (=ボイス) のみを抽出したファイルは 02-PreparedSources/(音声ファイル名).wav に出力される
     ## すでに抽出済みのファイルがある場合は音源分離は行われず、すでに抽出済みのファイルを使用する
-    voices_files = demucs.ExtractVoices(source_files, constants.PREPARE_SOURCES_DIR)
+    if use_demucs is True:
+        voices_files = demucs.ExtractVoices(source_files, constants.PREPARE_SOURCES_DIR)
+    else:
+        voices_files = demucs.ConvertToWave(source_files, constants.PREPARE_SOURCES_DIR)
 
     model: faster_whisper.WhisperModel | None = None
 
@@ -224,7 +229,7 @@ def create_segments(
             output_audio_file = folder / f'{count:04d}_{transcript}.wav'
 
             # 一文ごとに切り出した (セグメント化した) 音声ファイルを出力
-            real_output_audio_file = prepare.SliceAudioFile(voices_file, output_audio_file, segment_start, segment_end)
+            real_output_audio_file = prepare.SliceAudioFile(voices_file, output_audio_file, segment_start, segment_end, trim_silence)
 
             typer.echo(f'File {real_output_audio_file} saved.')
             count += 1
@@ -238,7 +243,12 @@ def create_segments(
 def create_datasets(
     segments_dir_name: Annotated[str, typer.Argument(help='Segments directory name. Glob pattern (wildcard) is available.')],
     speaker_names: Annotated[str, typer.Argument(help='Speaker name. (Comma separated)')],
+    accept_all: Annotated[bool, typer.Option(help='Accept all segments and transcriptions. (Skip UI)')] = False,
 ):
+    # 何故かうちのWindows環境で引数"*"が受け取れないので、代わりにALLも使えるようにする
+    if segments_dir_name == 'ALL':
+        segments_dir_name = '*'
+
     # このサブコマンドでしか利用せず、かつ比較的インポートが重いモジュールはここでインポートする
     import gradio
 
@@ -296,15 +306,80 @@ def create_datasets(
     current_index = 0
 
     # セレクトボックスの選択肢
-    choices = ['🚫このセグメントをデータセットから除外する🚫'] + speaker_name_list
+    choices = speaker_name_list
 
     # 出力ファイルの連番
     output_audio_count: dict[str, int] = {}
     for speaker in speaker_name_list:
         # 既にそのディレクトリに存在するファイルの中で連番が一番大きいものを取得し、それに 1 を足したものを初期値とする
         output_audio_count[speaker] = max([
-            int(re.sub(r'\D', '', i.stem)) for i in (constants.DATASETS_DIR / speaker / 'audios' / 'wavs').glob('*.wav')
+            int(re.sub(r'\D', '', i.stem)) for i in (constants.DATASETS_DIR / speaker / 'raw').glob('*.wav')
         ], default=0) + 1
+
+    if accept_all is True:
+        if len(speaker_name_list) != 1:
+            typer.echo(f'Error: Speaker names must be one if --accept-all option is specified.')
+            typer.echo('=' * utils.GetTerminalColumnSize())
+            sys.exit(1)
+        speaker_name = speaker_name_list[0]
+        while current_index < len(segment_audio_paths):
+            audio_output_dir = constants.DATASETS_DIR / speaker_name / 'raw'
+            audio_output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = audio_output_dir / f'{output_audio_count[speaker_name]:04}.wav'
+            output_audio_count[speaker_name] += 1  # 連番をインクリメント
+            shutil.copyfile(segment_audio_paths[current_index], output_path)
+            typer.echo(f'File {output_path} saved.')
+            text_list_path = constants.DATASETS_DIR / speaker_name / 'esd.list'
+            if not text_list_path.exists():  # ファイルがなければ空のファイルを作成
+                text_list_path.parent.mkdir(parents=True, exist_ok=True)
+                text_list_path.touch()
+            with open(text_list_path, 'a', encoding='utf-8') as f:
+                f.write(f'{output_path.name}|{speaker_name}|JP|{segment_audio_transcripts[current_index]}\n')
+            typer.echo(f'Segment File : {segment_audio_paths[current_index].name}')
+            typer.echo(f'Speaker Name : {speaker_name}')
+            typer.echo(f'Transcript   : {segment_audio_transcripts[current_index]}')
+            typer.echo(f'File {text_list_path} updated.')
+            typer.echo('-' * utils.GetTerminalColumnSize())
+            current_index += 1
+        typer.echo('=' * utils.GetTerminalColumnSize())
+        typer.echo('All files processed.')
+        typer.echo('=' * utils.GetTerminalColumnSize())
+        return
+
+    def OnSkip() -> tuple[gradio.Audio, gradio.Dropdown, gradio.Textbox]:
+        nonlocal current_index, segment_audio_paths, segment_audio_transcripts, choices, output_audio_count
+        typer.echo('Segment file skipped.')
+        typer.echo('-' * utils.GetTerminalColumnSize())
+        # 次の処理対象のファイルのインデックス
+        current_index += 1
+        if current_index >= len(segment_audio_paths):
+            typer.echo('=' * utils.GetTerminalColumnSize())
+            typer.echo('All files processed.')
+            typer.echo('=' * utils.GetTerminalColumnSize())
+            return (
+                gradio.Audio(
+                    sources = [],
+                    type = 'filepath',
+                    interactive = True,
+                    autoplay = True,
+                ),
+                gradio.Dropdown(choices=['選別完了'], value='選別完了', label='音声セグメントの話者名'),  # type: ignore
+                gradio.Textbox(value='すべてのセグメントの選別を完了しました。Aivis のプロセスを終了してください。', label='音声セグメントの書き起こし文'),
+            )
+
+        # UI を更新
+        return (
+            gradio.Audio(
+                value = segment_audio_paths[current_index],
+                sources = [],
+                type = 'filepath',
+                label = segment_audio_paths[current_index].name,
+                interactive = True,
+                autoplay = True,
+            ),
+            gradio.Dropdown(choices=choices, value=choices[0], label='音声セグメントの話者名'),  # type: ignore
+            gradio.Textbox(value=segment_audio_transcripts[current_index], label='音声セグメントの書き起こし文'),
+        )
 
     def OnClick(
         segment_audio_path_str: str,
@@ -324,31 +399,24 @@ def create_datasets(
             typer.echo(f'Speaker Name : {speaker_name}')
             typer.echo(f'Transcript   : {transcript}')
 
-            # "🚫このセグメントをデータセットから除外する🚫" が選択された場合はスキップ
-            if speaker_name != '🚫このセグメントをデータセットから除外する🚫':
+            # データセットに編集後の音声ファイルを保存 (書き起こし文はファイル名が長くなるので含まず、別途ファイルに保存する)
+            ## Gradio の謎機能で、GUI でトリムした編集後の一次ファイルが segment_audio_path_str として渡されてくる
+            audio_output_dir = constants.DATASETS_DIR / speaker_name / 'raw'
+            audio_output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = audio_output_dir / f'{output_audio_count[speaker_name]:04}.wav'
+            output_audio_count[speaker_name] += 1  # 連番をインクリメント
+            shutil.copyfile(segment_audio_path, output_path)
+            typer.echo(f'File {output_path} saved.')
 
-                # データセットに編集後の音声ファイルを保存 (書き起こし文はファイル名が長くなるので含まず、別途ファイルに保存する)
-                ## Gradio の謎機能で、GUI でトリムした編集後の一次ファイルが segment_audio_path_str として渡されてくる
-                audio_output_dir = constants.DATASETS_DIR / speaker_name / 'audios' / 'wavs'
-                audio_output_dir.mkdir(parents=True, exist_ok=True)
-                output_path = audio_output_dir / f'{output_audio_count[speaker_name]:04}.wav'
-                output_audio_count[speaker_name] += 1  # 連番をインクリメント
-                shutil.copyfile(segment_audio_path, output_path)
-                typer.echo(f'File {output_path} saved.')
-
-                # 音声ファイルのパスと書き起こし文のパスのペアを speaker.list に順次追記
-                text_list_path = constants.DATASETS_DIR / speaker_name / 'filelists' / 'speaker.list'
-                if not text_list_path.exists():  # ファイルがなければ空のファイルを作成
-                    text_list_path.parent.mkdir(parents=True, exist_ok=True)
-                    text_list_path.touch()
-                with open(text_list_path, 'a', encoding='utf-8') as f:
-                    f.write(f'Data/{speaker_name}/audios/wavs/{output_path.name}|{speaker_name}|JP|{transcript}\n')
-                typer.echo(f'File {text_list_path} updated.')
-                typer.echo('-' * utils.GetTerminalColumnSize())
-
-            else:
-                typer.echo('Segment file skipped.')
-                typer.echo('-' * utils.GetTerminalColumnSize())
+            # 音声ファイルのパスと書き起こし文のパスのペアを speaker.list に順次追記
+            text_list_path = constants.DATASETS_DIR / speaker_name / 'esd.list'
+            if not text_list_path.exists():  # ファイルがなければ空のファイルを作成
+                text_list_path.parent.mkdir(parents=True, exist_ok=True)
+                text_list_path.touch()
+            with open(text_list_path, 'a', encoding='utf-8') as f:
+                f.write(f'{output_path.name}|{speaker_name}|JP|{transcript}\n')
+            typer.echo(f'File {text_list_path} updated.')
+            typer.echo('-' * utils.GetTerminalColumnSize())
 
             # 次の処理対象のファイルのインデックス
             current_index += 1
@@ -434,7 +502,9 @@ def create_datasets(
             )
             speaker_choice = gradio.Dropdown(choices=[], value='', label='音声セグメントの話者名')  # type: ignore
             transcript_box = gradio.Textbox(value='確定ボタンを押して、データセット作成を開始してください。', label='音声セグメントの書き起こし文')
-            confirm_button = gradio.Button('確定')
+            with gradio.Row():
+                confirm_button = gradio.Button('確定', variant='primary')
+                skip_button = gradio.Button('このデータを除外')
             confirm_button.click(
                 fn = OnClick,
                 inputs = [
@@ -442,6 +512,14 @@ def create_datasets(
                     speaker_choice,
                     transcript_box,
                 ],
+                outputs = [
+                    audio_player,
+                    speaker_choice,
+                    transcript_box,
+                ],
+            )
+            skip_button.click(
+                fn = OnSkip,
                 outputs = [
                     audio_player,
                     speaker_choice,
@@ -460,8 +538,9 @@ def create_datasets(
                 ],
             )
 
-        # 0.0.0.0:7860 で Gradio UI を起動
-        gui.launch(server_name='0.0.0.0', server_port=7860)
+        # # 0.0.0.0:7860 で Gradio UI を起動
+        # ↑動かなかったのでローカルホストで特に指定せずに起動
+        gui.launch(inbrowser=True)
 
 
 @app.command(help='Check dataset files and calculate total duration.')
@@ -478,8 +557,8 @@ def check_dataset(
         sys.exit(1)
 
     # speaker.list をパースして音声ファイルのパスと書き起こし文を取得
-    ## 例: Data/SpeakerName/audios/wavs/0001_こんにちは.wav|SpeakerName|JP|こんにちは
-    with open(dataset_dir / 'filelists' / 'speaker.list', 'r', encoding='utf-8') as f:
+    ## 例: 0001_こんにちは.wav|SpeakerName|JP|こんにちは
+    with open(dataset_dir / 'esd.list', 'r', encoding='utf-8') as f:
         dataset_files_raw = f.read().splitlines()
         dataset_files = [i.split('|') for i in dataset_files_raw]
 
@@ -491,7 +570,7 @@ def check_dataset(
     for index, dataset_file in enumerate(dataset_files):
         if index > 0:
             typer.echo('-' * utils.GetTerminalColumnSize())
-        dataset_file_path = Path(dataset_file[0].replace('Data/', constants.DATASETS_DIR.as_posix() + '/'))
+        dataset_file_path = constants.DATASETS_DIR / speaker_name / 'raw' / dataset_file[0]
         typer.echo(f'Dataset File : {dataset_file_path}')
         if not dataset_file_path.exists():
             typer.echo(f'Error: Dataset file {dataset_file_path} not found.')

@@ -18,6 +18,7 @@ SOURCE_FILE_EXTENSIONS = [
     '.m4a',
     '.mp4',
     '.ts',
+    '.ogg'
 ]
 
 # スキップする Whisper のハルシネーション避けのワード
