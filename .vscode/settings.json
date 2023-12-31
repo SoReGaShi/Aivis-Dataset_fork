@@ -14,4 +14,7 @@
         "reportUnknownVariableType": "none",
         "reportUnusedFunction": "none",
     },
+    // OriginalのAivisリポジトリのコードが勝手に変わらないようにする
+    "editor.formatOnSave": false, 
+    "editor.formatOnPaste": false
 }
