@@ -1,5 +1,5 @@
 demucs==4.0.1
-faster-whisper==0.10.0
+faster-whisper==0.10.1
 https://github.com/tsukumijima/gradio/releases/download/v4.10.0b1/gradio-4.10.0-py3-none-any.whl
 librosa==0.10.1
 nvidia-cublas-cu11==11.11.3.6
