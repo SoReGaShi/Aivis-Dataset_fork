@@ -6,7 +6,7 @@ print("Running Aivis create-datasets...")
 
 try:
     # Aivis create-datasets コマンドを実行
-    !python -m Aivis create-datasets ALL {speaker_names} --accept-all
+    python -m Aivis create-datasets ALL {speaker_names} --accept-all
     print("[INFO] Aivis create-datasetsが完了しました。")
 except Exception as e:
     print(f"[ERROR] エラーが発生しました: {e}")
