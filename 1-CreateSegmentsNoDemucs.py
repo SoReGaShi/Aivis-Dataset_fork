@@ -1,4 +1,6 @@
+
 print("Running Aivis create-segments --no-use-demucs...")
+
 try:
     # Aivis create-segments コマンドを実行
     !python -m Aivis create-segments --no-use-demucs
