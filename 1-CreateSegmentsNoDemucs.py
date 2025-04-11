@@ -1,11 +1,3 @@
-# Aivis create-segments --no-use-demucs の Colab 実行スクリプト
-# 必要なパッケージをインストール
-!pip install Aivis
-
-# 現在の作業ディレクトリの表示
-!pwd
-print("作業ディレクトリを確認しました。")
-
 print("Running Aivis create-segments --no-use-demucs...")
 try:
     # Aivis create-segments コマンドを実行
