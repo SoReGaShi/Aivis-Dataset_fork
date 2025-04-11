@@ -7,7 +7,6 @@ speaker_names = input("話者名を入力してください: ")
 print("Running Aivis create-datasets...")
 
 try:
-    # subprocessでコマンドを実行
     command = [
         "python", "-m", "Aivis", "create-datasets", "ALL", speaker_names, "--accept-all"
     ]
