@@ -1,4 +1,6 @@
+
 print("Running Aivis create-segments --trim-silence...")
+
 try:
     # Aivis create-segments コマンドを実行
     !python -m Aivis create-segments --trim-silence
