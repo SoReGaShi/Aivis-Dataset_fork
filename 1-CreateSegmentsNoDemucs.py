@@ -5,7 +5,6 @@ import subprocess
 print("Running Aivis create-segments --no-use-demucs...")
 
 try:
-    # Aivis create-segments コマンドを実行
     subprocess.run(["python", "-m", "Aivis", "create-segments", "--no-use-demucs"], check=True)
     print("[INFO] Aivis create-segmentsが完了しました。")
 except Exception as e:
