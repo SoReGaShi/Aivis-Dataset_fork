@@ -1,3 +1,4 @@
+# Colabで実行するために独自に追加したコードです
 
 print("Running Aivis create-segments --trim-silence...")
 
