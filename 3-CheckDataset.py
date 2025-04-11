@@ -6,7 +6,7 @@ print("Running Aivis check-dataset...")
 
 try:
    # Aivis check-dataset コマンドを実行
-   !python -m Aivis check-dataset {speaker_name}
+   python -m Aivis check-dataset {speaker_name}
    print("[INFO] Aivis check-datasetが完了しました。")
 except Exception as e:
    print(f"[ERROR] エラーが発生しました: {e}")
