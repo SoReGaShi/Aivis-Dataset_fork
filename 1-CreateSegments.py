@@ -1,10 +1,3 @@
-# Aivis create-segments の Colab 実行スクリプト
-# 必要なパッケージをインストール
-!pip install Aivis
-
-# 現在の作業ディレクトリの表示
-!pwd
-print("作業ディレクトリを確認しました。")
 
 try:
     # Aivis create-segments コマンドを実行
