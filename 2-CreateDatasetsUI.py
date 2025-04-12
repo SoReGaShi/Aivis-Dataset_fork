@@ -8,7 +8,7 @@ print("Running Aivis create-datasets...")
 
 try:
     command = [
-        "python", "-m", "Aivis", "create-datasets", "ALL", speaker_names
+        "python", "-m", "Aivis", "create-datasets", "*", speaker_names
     ]
     result = subprocess.run(command, check=True, capture_output=True, text=True)
     print("[INFO] Aivis create-datasetsが完了しました。")
