@@ -487,7 +487,7 @@ def create_datasets(
             ),
             gradio.Textbox(value=segment_audio_transcripts[current_index], label='音声セグメントの書き起こし文'),
         )
-
+"""
     # Gradio UI の定義と起動
     with gradio.Blocks(css='.gradio-container { max-width: 768px !important; }') as gui:
         with gradio.Column():
@@ -541,7 +541,62 @@ def create_datasets(
         # # 0.0.0.0:7860 で Gradio UI を起動
         # ↑動かなかったのでローカルホストで特に指定せずに起動
         gui.launch(inbrowser=True)
+"""
 
+# Gradio UI の定義と起動（Colabで動くように修正した）
+with gradio.Blocks(css='.gradio-container { max-width: 768px !important; }') as gui:
+    # ここは元のコードと同じ（UIの定義部分）
+    with gradio.Column():
+        gradio.Markdown("""
+            # Aivis - Create Datasets
+        """)
+        audio_player = gradio.Audio(
+            sources = [],
+            type = 'filepath',
+            interactive = True,
+            autoplay = True,
+        )
+        speaker_choice = gradio.Dropdown(choices=[], value='', label='音声セグメントの話者名')
+        transcript_box = gradio.Textbox(value='確定ボタンを押して、データセット作成を開始してください。', label='音声セグメントの書き起こし文')
+        with gradio.Row():
+            confirm_button = gradio.Button('確定', variant='primary')
+            skip_button = gradio.Button('このデータを除外')
+        confirm_button.click(
+            fn = OnClick,
+            inputs = [
+                audio_player,
+                speaker_choice,
+                transcript_box,
+            ],
+            outputs = [
+                audio_player,
+                speaker_choice,
+                transcript_box,
+            ],
+        )
+        skip_button.click(
+            fn = OnSkip,
+            outputs = [
+                audio_player,
+                speaker_choice,
+                transcript_box,
+            ],
+        )
+        reset_button = gradio.Button('音声と書き起こし文の変更をリセット')
+        reset_button.click(
+            fn = OnReset,
+            inputs = [
+                speaker_choice,
+            ],
+            outputs = [
+                audio_player,
+                transcript_box,
+            ],
+        )
+    
+    # Colab用の起動設定
+    gui.launch(share=True, debug=True)
+    # share=Trueにすることで、公開URLが生成されます
 
 @app.command(help='Check dataset files and calculate total duration.')
 def check_dataset(
